@@ -21,6 +21,7 @@
   DEALINGS IN THE SOFTWARE.
 */
 
+#include <Adafruit_NeoPixel.h>
 
 //pin assignments
 
@@ -29,6 +30,45 @@ const byte dm_pin_out = A2;
 const byte dm_pin_notOE = A1;
 const byte dm_pin_Ain = A3;
 const byte probe_pin = 2;
+
+
+//neopixel setup
+const int neopixel_pin = 5;
+const int num_pixels = 2;
+Adafruit_NeoPixel pixels(num_pixels, neopixel_pin, NEO_GRB + NEO_KHZ800);
+
+//neopixel light up delays
+const int litDelayMs = 5000;
+bool isLit = false;
+unsigned long litTime = 0;
+
+//neopixel colours
+const uint16_t colour_white = -1;
+const uint16_t colour_red = 0;
+const uint16_t colour_blue = 43690;
+const uint16_t colour_green = 21845;
+const uint16_t colour_yellow = 10922;
+
+//neopixel functions
+void fadeIn(uint16_t hue, int steps, int delayMs) {
+  int sat = 255;
+  if (hue == colour_white) {
+      hue = 0;
+      sat = 0;
+  }
+  int val = 0;
+  int inc = ceil(200.0 / steps);
+  for(int i = 0; i < steps + 1; i++) {
+    uint32_t colour = pixels.gamma32(pixels.ColorHSV(hue, sat, val));
+    pixels.fill(colour);
+    pixels.show();
+    val = val + inc;
+    if(val > 255) {
+      val = 255;
+    }
+    delay(delayMs);
+  }
+}
 
 
 //durations, in microseconds unless otherwise specified
@@ -429,6 +469,13 @@ void setup() {
     pinMode(dm_pin_out, OUTPUT);
     pinMode(dm_pin_notOE, OUTPUT);
     pinMode(dm_pin_Ain, INPUT);
+
+    pixels.begin();
+    pixels.clear();
+    pixels.show();
+    delay(100);
+    fadeIn(colour_white, 100, 10);
+
     ledOn();
     initDmTimes('V');
     busRelease();
@@ -698,16 +745,20 @@ void commListen() {
 }
 
 //interact with the toy on the other end of the connection
-void commBasic(boolean goFirst, byte * buffer) {
+bool commBasic(boolean goFirst, byte * buffer) {
     unsigned int bitsRcvd = 0;
     unsigned int bitsToSend = 0;
     int8_t checksum = 0;
     int bufCur = 2;
     int result;
+    bool packetReceived = false;
+
     if (!goFirst) {
         if (rcvPacketGet(&bitsRcvd, listen_timeout)) {
             Serial.println();
-            return;
+            return packetReceived;
+        } else {
+            packetReceived = true;
         }
     }
     ledOff();
@@ -726,11 +777,14 @@ void commBasic(boolean goFirst, byte * buffer) {
         sendPacket(bitsToSend);
         if (rcvPacketGet(&bitsRcvd, 0)) {
             break;
+        } else {
+            packetReceived = true;
         }
     }
     delayByTicks((long)ended_capture_ms * 1000);
     ledOn();
     Serial.println();
+    return packetReceived;
 }
 
 
@@ -857,6 +911,14 @@ void loop() {
     static byte numPackets;
     static byte buffer[command_buffer_size];
 
+    uint16_t ledColour = colour_white;
+
+    unsigned long currentTime = millis();
+    if (isLit && (currentTime - litTime >= litDelayMs)) {
+        fadeIn(colour_white, 100, 10);
+        isLit = false;
+    }
+
     int i;
 
     //process serial input
@@ -919,13 +981,18 @@ void loop() {
                 listenOnly = false;
                 goFirst = true;
                 Serial.print('1');
+                ledColour = colour_blue;
             } else if (buffer[1] == '2') {
                 listenOnly = false;
                 goFirst = false;
                 Serial.print('2');
+                ledColour = colour_yellow;
             } else {
                 active = false;
                 Serial.print('?');
+                ledColour = colour_red;
+                litTime = millis();
+                isLit = true;
             }
         }
         if (i < 7 && !listenOnly) {
@@ -946,11 +1013,14 @@ void loop() {
             Serial.print(F("(paused)"));
         }
         Serial.println();
+        if (ledColour != colour_white) {
+            fadeIn(ledColour, 100, 10);
+        }
         if (active && goFirst) {
             delay(gofirst_repeat_ms);
         }
     }
-    
+
     //do it
     startLog();
     initDmTimes(timingID);
@@ -959,7 +1029,11 @@ void loop() {
         if (listenOnly) {
             commListen();
         } else {
-            commBasic(goFirst, buffer);
+            if (commBasic(goFirst, buffer)) {
+                fadeIn(colour_green, 100, 10);
+                litTime = millis();
+                isLit = true;
+            }
         }
         if (debugMode != debug_off) {
             Serial.print(F("p:timing="));
