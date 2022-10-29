@@ -1,2 +1,7 @@
-*.tmp
-*.html
+# Object files
+*.eep
+*.elf
+
+# Executables
+*.hex
+*.bin
