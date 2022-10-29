@@ -1,0 +1,63 @@
+name: DMComm Release CI
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        board: ["uno", "nano", "leonardo"]
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Compile sketch
+      uses: arduino/compile-sketches@v1
+      with:
+        fqbn: "arduino:avr:${{ matrix.board }}"
+        sketch-paths: |
+          - dmcomm
+        libraries: |
+          - name: Adafruit NeoPixel
+            version: 1.10.6
+        cli-compile-flags: |
+          --export-binaries
+
+    - name: Copy hex to working dir and rename
+      run: |
+        cp dmcomm/build/arduino.avr.${{ matrix.board }}/dmcomm.ino.hex ./dmcomm_neopixel-arduino-${{ matrix.board }}.hex
+
+    - name: Upload built artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: arduino-${{ matrix.board }}
+        path: ./dmcomm_neopixel-arduino-${{ matrix.board }}.hex
+
+  upload:
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download all built artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Copy all hex files to working dir
+      run: |
+        find . -type f -name "*.hex" -exec cp {} . \;
+
+    - name: Create draft GitHub release and upload artifacts
+      uses: docker://antonyurchenko/git-release:v4
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_NAME_PREFIX: "DMComm NeoPixel  "
+        DRAFT_RELEASE: "true"
+      with:
+        args: |
+          *.hex
