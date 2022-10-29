@@ -24,10 +24,10 @@ jobs:
         sketch-paths: |
           - dmcomm
         libraries: |
-          - name: Adafruit NeoPixel
+          - name: "Adafruit NeoPixel"
             version: 1.10.6
         cli-compile-flags: |
-          --export-binaries
+          - --export-binaries
 
     - name: Copy hex to working dir and rename
       run: |
