@@ -1,11 +1,11 @@
 
-# DMComm
+# DMComm NeoPixel
 
-Project using Arduino to communicate with Digimon toys, by BladeSabre ( bladethecoder@gmail.com ). License: MIT.
+Project using Arduino to communicate with Digimon toys, originally by BladeSabre ( bladethecoder@gmail.com ) and NeoPixel support added by Manicben. License: MIT.
 
 ## Overview
 
-On the hardware side, some circuitry is needed to interface the Arduino with the toys. See the [guide](https://dmcomm.github.io/guide/nano/) for details.
+On the hardware side, some circuitry is needed to interface the Arduino with the toys. See the [guide](https://dmcomm.github.io/guide/nano/) for details. Note that this fork expects 2 NeoPixel LEDs to be connected to pin 5.
 
 The core of the project is the `dmcomm` Arduino sketch found here. This accepts instructions via the serial interface, communicates with the toys, and responds via serial with the results.
 
@@ -105,3 +105,15 @@ Bytes starting 0b00 represent a voltage level. The other 6 bits indicate the vol
 
 Bytes starting 0b10 represent extension of the previous voltage level. They contain the number of additional samples, in groups of 6 bits, least significant first. (Note that this number does not include the original sample, so is 1 less than the total duration.)
 
+## NeoPixels
+
+This fork adds support for WS2812B or SK6812B based "NeoPixel" LEDs. These need to be RGB only, RGBW is not supported.
+By default, the pin for the NeoPixels is pin 5, with a chain of 2 pixels, but this can be changed to another pin or more LEDs added. If adding more LEDs, keep in mind the current consumption.
+
+The NeoPixel LEDs are used for showing the status of the D-Com/A-Com. The colours and what they represent are as follows:
+
+* **White** : idle
+* **Blue** : send first, i.e. V1, X1, Y1 codes
+* **Yellow** : listen for input, i.e. V2, X2, Y2 codes
+* **Green** : response received from toy
+* **Red** : Invalid code received
